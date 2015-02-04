@@ -1,0 +1,301 @@
+\documentclass[english,nohyper]{tufte-handout}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage[english]{babel}
+\usepackage{blindtext}
+\usepackage[unicode=true]
+ {hyperref}
+\usepackage{breakurl}
+
+\makeatletter
+
+
+\title{DPOE 2014: Survey Analysis}
+\author{Nick Krabbenhoeft}
+\date{02/02/15}
+
+\makeatother
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+
+\section{Summary}
+
+This report analyzes the data collected from a survey conducted by the Digital Preservation Outreach and Education (DPOE)\footnote{The \href{http://www.digitalpreservation.gov/education/}{mission} of DPOE is ``to foster national outreach and education to encourage individuals and organizations to actively preserve their digital content, building on a collaborative network of instructors, contributors, and institutional partners.''} program of the Library of Congress during July, August, and September of 2014. In total, 436 participants submitted responses to questions about their organizations, collections, and training preferences. The following analysis breaks down the data roughly according to those groups.
+
+
+\section{Methodology}
+
+This is an exploratory report conducted on a volunteer basis by CodedCulture. As an exploratory report, there are no research questions to answer. Instead, the results are seeds for future questions and surveys to answer.
+
+The dataset was provided by Barrie Howard of the DPOE Committee as a raw export from SurveyMonkey. Several steps were taken to clean and normalize the dataset, including\footnote{Changes are documented more completely in the change log accompanying the dataset}:
+\begin{itemize}
+\item removing potential personally identifiable information such as email address
+\item shortening column names for easier referencing during analysis
+\item normalizing values for responses to ranking questions
+\end{itemize}
+
+The dataset was then loaded into \href{http://www.r-project.org/}{R}, an open-source statistical analysis and graphing program. A verbose version of this report with both the code and the results is available. All files used in the project were placed in a git repository, available on \href{http://github.com/CodedCulture/dpoe14_survey}{Github}.
+
+Three types of questions make up most of the survey, single-answer multiple-choice, multiple-answer multiple-choice, and forced ranking questions.
+
+In the analysis, answers to multiple-choice questions are treated as categorical factors. Where a respondent chose multiple answers, the response is grouped with each category factor.
+
+Forced ranking questions had respondents rank a set of choices with no ties were allowed. Respondents could enter an additional choice with a free text ``other'' field. As a result, responses to the same 5 choice question could be on a scale of 1-5 or 1-6. Combined with the small range of values, this made it difficult to interpret average rankings. All ranking data is presented as bar plots to better visualize the distribution of votes.
+
+<<data, echo=FALSE, warning=FALSE, message=FALSE, tidy=TRUE>>=
+# load functions created during the course of this analysis
+source('~/dev/DPOE14_survey/analysis/0_functions.r')
+source('~/dev/DPOE14_survey/analysis/1_setup.r')
+source('~/dev/DPOE14_survey/analysis/2_time.r')
+source('~/dev/DPOE14_survey/analysis/3_org.r')
+source('~/dev/DPOE14_survey/analysis/4_training.r')
+@
+\section{Time Analysis}
+
+SurveyMonkey records the start and end times for each completed survey, which can give a lot of insight into how the survey was administered and respondents interacted with it.
+
+\subsection{How long did it take to complete the survey?}
+\begin{marginfigure}
+<<length-plot, echo=FALSE, fig.width=5, fig.height=3>>=
+# use objects from 2_time.R
+par(bty = 'n')
+boxplot(df.meta$Length, outline = F, horizontal = T, col = '#B34F89', xlab = 'Minutes')
+@
+\protect\caption{Boxplot of Completion Time\label{length-plot}}
+\end{marginfigure}
+
+Survey completion time varied greatly. Some respondents opened the survey in a tab and only completed it days later. Those outliers skew the average completion time to 38 minutes. Ignoring the outliers and looking at the distribution of the dataset shows that half of the respondents completed the survey in 8 minutes or less (see Figure \ref{length-plot}). An average respondent likely took between 6 and 14 minutes to finish.
+
+The average completion times are short enough that just the starting time alone acts as a rough estimate of completion rates.
+
+\subsection{When were surveys started?}
+
+\begin{marginfigure}
+<<week-plot, echo=FALSE, cache=FALSE, fig.width=5, fig.height=3>>=
+g.Weeks
+@
+\protect\caption{Survey Starts by Week\label{week-plot}}
+\end{marginfigure}
+
+The survey was first released on Thursday, July 17 with announcements on several major community listservs. After an initial rush, the response rate tapered off quickly. Nearing the original deadline of Friday, August 15, weekly completion rates were in the single digits (see Figure \ref{week-plot}). Then, the deadline was extend by another month, advertised with a second wave of listserv announcements.
+
+\begin{figure}
+<<ecdf-plot, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.Date
+@
+\caption{Completion Distribution of Surveys (July-August)\label{ecdf-plot}}
+\end{figure}
+
+Nearly 40\% of the total responses came after the extension of the deadline (see Figure \ref{ecdf-plot}). Like the first wave, the response rate dropped off quickly after the initial rush. Without records of where and when announcements were made, it's only speculation to say what drives survey completion. But, it wouldn't be surprising if there's a direct correlation between listserv announcments and survey completions.
+
+\subsection{How does work affect responses?}
+Looking at what day of the week, surprisingly, Tuesday and Wednesday were the most common days to take the survey (see Figure \ref{weekday-plot}). Again, we would need more information about the announcements to give a reason for this. One potential is that filling out a survey is a nice break during the middle of the week. Unsurprisingly, nearly no one took the survey on the weekend.
+
+\begin{marginfigure}
+<<weekday-plot, echo=FALSE, cache=FALSE, fig.width=5, fig.height=3>>=
+g.DOW
+@
+\caption{Survey Starts by Weekday\label{weekday-plot}}
+\end{marginfigure}
+
+During the workday, responses are grouped into two rough time periods, before and after lunch (see Figure \ref{hour-plot}). Digital preservation starts early in the morning for many respondents, with a large number of responses coming between 6am and 9am. That amount continues growing until a sharp dip for lunch. The peak responses came right after lunch at 1pm, but by 4pm the day is done.
+
+\begin{figure}
+<<hour-plot, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.hour
+@
+\caption{Survey Starts by Hour\label{hour-plot}}
+\end{figure}
+
+However, exploding the time data by timezone reveals a strange skew to the dataset (see Figure \ref{hourtz-plot}). While the Eastern and Central timezones are well-represented, there are very few respondents from the western half of the US. This will be explored more in \hyperref[respondents]{Respondents} section.
+
+\begin{figure}
+<<hourtz-plot, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.hourTZ
+@
+\caption{Survey Starts by Hour and Timezone\label{hourtz-plot}}
+\end{figure}
+
+\subsection{Recommendations}
+
+Many of the trends found in this dataset may seem trivial, they point to an important opportunity to strengthen future versions of the survey: tracking listserv announcements. SurveyMonkey offers several methods to track the source of inbound traffic such as \href{http://help.surveymonkey.com/articles/en_US/kb/Collector-Options}{Collector Options} or \href{http://help.surveymonkey.com/articles/en_US/kb/Customizing-Survey-Links}{Custom Survey Links}. By tracking listserv announcements, DPOE can evaluate and improve many aspects of the survey, including:
+\begin{itemize}
+\item how the timing of an announcement effects response
+\item how much response each announcement receives
+\item how quickly response to an announcement decays
+\item how listservs reinforce or cut across sections of the digital preservation community
+\end{itemize}
+
+The final question is one worth a lot of consideration. The digital preservation community is spread out. Someone can be the only digital preservation practicioner in their organization, city, or even region. The community relies on listservs and social networking to keep in contact, so measuring responses from them is important to improving engagement.
+
+\section{Respondents} \label{respondents}
+The timezone analysis (see Figure \ref{hourtz-plot}) highlighted a strong eastern bias in the dataset. Understanding who is represented in the dataset bares strongly on how the rest of the responses can be interpreted.
+
+\subsection{Where are respondents from?}
+Comparing a state's portion of survey responses to its portion of the US population is a good, rough measure of how under- or over-represented it is.
+
+\begin{figure}
+<<rep plot, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+# count by state and timezone
+df.tz <- select(df.meta, Timezone) %>% 
+        ddply( .(Timezone), summarize, ResponsesTZ = length(Timezone))
+
+df.StatePop <- read.csv('~/dev/DPOE14_survey/data/data_popbystate.csv')
+df.StatePop$PercentUSPop <- df.StatePop$PopEstimate2014/318857056
+
+df.places <- select(df.meta, State, Timezone) %>% 
+        ddply( .(State, Timezone), summarize, Responses=length(State)) %>%
+        merge(df.tz) %>%
+        mutate(PercentTotalTZ = Responses/ResponsesTZ, 
+               PercentTotal = Responses/436) %>%
+        merge(df.StatePop[ , c('State', 'PercentUSPop')]) %>%
+        mutate(Outliers = ifelse(PercentUSPop/PercentTotal > 1.5 & PercentUSPop > .02, 
+                                 'Underrepresented',
+                                 ifelse(PercentUSPop/PercentTotal < .6 & PercentTotal > .02,
+                                        'Overrepresented', NA)),
+               Outliers = factor(Outliers))
+
+g.representation <- ggplot(df.places, aes(PercentUSPop, PercentTotal))
+g.representation + geom_abline(0, col='grey') +
+        geom_point() +
+        geom_text(data = subset(df.places, is.na(df.places$Outliers) == F),
+                  aes(PercentUSPop, PercentTotal, label = State, col = Outliers),
+                  hjust = .5, vjust = -1) +
+        scale_color_manual(values = c('#CC68A2', '#66023C')) +
+        scale_x_continuous(labels = percent) +
+        scale_y_continuous(labels = percent) +
+        labs(x = "Percentage of US Population",
+             y = "Percentage of Survey Responses") +
+        theme(legend.position="none")
+@
+\caption{Survey Participation Compared to US Population by State\label{rep-plot}}
+\end{figure}
+In Figure \ref{rep-plot}, the guide measures where the percentage of responses equals the percentage of the US population. States with less responses than expected are below the guide. Those with more are above. The further away from the guide, the more under- or over-represented a state is. In general, two proportions are correlated, but 8 states deviate from expectation by 50\% or more: Washington DC\footnote{Not a state, but it should be.}, Colorado, Massachusetts, Virginia, New Jersey, Ohio, Florida, and California.
+
+The first 4 are understandable. As regional or national cultural centers, DC, Colorado, Massachusetts, and Virginia have a higher number cultural heritage organizations than average. However, New Jersey, Ohio, Florida, and California are concerning. The last two represent nearly 20\% of the nation's population and contributed only 6\% of the responses. California has many large, well-established digital collections including the Internet Archive, Stanford Archives, California Digital Libaries, and Computer History Museum, and Florida hosted the Florida Center for Library Automation for 3 decades.
+
+Is there less of a need for digital preservation education in these states? Are there fewer but larger organizations there? With 1 year of data, it may just be an anomaly. The state-by-state participation rate will need continued measuring to establish a trend.
+
+\subsection{What kinds of organizations do respondents work for?}
+<<echo=FALSE, warning=FALSE>>=
+
+@
+
+\begin{figure}
+<<orgstype, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.orgtype
+@
+\caption{Responses by Organization Type and Parent Organzation (Count)\label{orgstype}}
+\end{figure}
+
+The survey asked respondents to characterize their organization by the following categories: 
+\begin{description}
+\item[Parent Organization] Academic, Corporate, Nonprofit, Federal, Tribal, State, or Local
+\item[Organization Type] Archives, Historical Society, IT firm, Library, Media/Web firm, Museum, Records Management firm, or Research Center 
+\item[Staff Size] 1-12, 13-25, 26-50, 51-200, 201-500, 500+
+\end{description}
+
+
+Looking at the distribution of parent organization and organization types, the most common parent organizations are Academic, Nonprofit, and State, and the most common organization types are Libraries, Archives, and Museum (see Figure \ref{orgstype}). The rest of respondant analysis defaults to analyzing just these categories.\footnote{Using the union of these two sets, not the intersection. For example, a federal library is included in the list of libraries and an academic research center is included in the list of academic organizations.}
+
+Academic libraries are represented by over a third of the responses, and their weight can overwhelm clear comparison in the following analysis. As a result, many of the following graphs calculate the percentage of responses per category instead of the pure count of responses.\footnote{This is noted in each graph title with a (Count) or (Percentage) label.} 
+\begin{figure}
+<<typestaff, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.orgstaff
+@
+\caption{Staff Size by Organization Type (Percentage)\label{typestaff}}
+\end{figure}
+
+\begin{marginfigure}
+<<libtaff, echo=FALSE, cache=FALSE,>>=
+g.libstaff
+@
+\caption{Staff Size at Libraries by Parent Organization (Percentage)\label{libstaff}}
+\end{marginfigure}
+
+The next question is how large these organizations are (see Figure \ref{typestaff}). A majority of archives and museums have staffs of 12 or less. In contrast, the distribution of libraries staff sizes is more spread out. Digging further into the parent organizations, most libraries resembles museum and archives in terms of staffing, but academic and state libraries are typically much larger (see Figure \ref{libstaff}). For example, the \Sexpr{sum(df.aclib.staff$count)} academic libraries themselves average an estimated miniumum staff of \Sexpr{libstaff} per library. With staffs that large, management and bureaucratic challenges probably have a strong impact on digital preservation in these organizations.
+
+\subsection{Who does the work of digital preservation?}
+
+
+The size of the overall organization effects the staffing for digital preservation responsibilities (see Figure \ref{respstaff}). As the total staff size increases, organizations tend to hire more dedicated staff and add digital preservation responsiblities to existing staff. The smallest organizations are more likely to use volunteers (~20\%) or to have no staff (~35\%).
+
+\begin{figure}
+<<respstaff, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.respstaff
+@
+\caption{Responsibility by Staff Size\label{respstaff}}
+\end{figure}
+
+\begin{figure}
+<<resporg, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>= 
+g.resporg
+@
+\caption{Responsibility by Organization Type\label{resporg}}
+\end{figure}
+
+Comparing digital preservation responsibilities across archives and libraries and museums, shows a couple important trends. Archives and museums tend to use more volunteers; unsurprising, since they also tend to have very small staffs. There is also a clear difference in the hiring of dedicated staff: archives (~60\%), libraries (45\%), then museum (~30\%). It's tempting to draw a connection between those numbers and the variety of potential job titles for digital preservation staff in each group:\footnote{Drawn from job postings.}
+\begin{description}
+\item [Archives] Digital Archivist, Digital Project Archivist
+\item [Libraries] Digital Projects Librarian, Digital Initiatives Librarian, Data Curation Librarian, Metadata Librarian
+\item [Museum] Digital Asset Manager, Data Curator, Digital Projects Manager
+\end{description}
+
+\subsection{What is being preserved?}
+One of the most interesting points of analysis is how much digital collections are alike in terms of their content. In terms of both:
+\begin{description}
+\item [Content type] \Sexpr{levels(df.ctypes$ContentType)}
+\item [Content format] \Sexpr{levels(df.cformat$ContentFormat)}
+\end{description}
+organization struggle with the same issues accross parent organizations, organzation types, and staff sizes (see Figure \ref{marcformat}).
+
+\begin{figure}
+<<marctype, echo=FALSE, cache=FALSE,  out.width='.49\\linewidth', fig.width=7.5, fig.height=4.5, fig.show='hold'>>=        
+g.ctypeparent
+g.cformparent
+g.ctypeorg
+g.cformorg
+g.ctypestaff
+g.cformstaff
+@
+\caption{Content Types and Formats by Parent Organization, Organization Type, and Staff Size (Percentage)\label{marcformat}}
+\end{figure}
+
+There are several differences worth noting. For example the importance of GIS and research data grows as the size of the organizations, with GIS data particularly important to state and academic libraries. Licensed material is primarily important to academic libraries and larger organizations. These trends make sense given the specialized needs of these organizations's audiences (e.g. property registries and research labs).
+
+However, outside of those areas, the similarity between each series of plots is remarkable. When it comes to the bits and bytes, everyone is working with very similar collections and probably facing the same problems.
+
+\subsection{What's the training budget?}
+
+In final organizational characteristic, funding available for training, nearly a third of respondents did not know how much funding was available (see Figure \ref{train}). These answers, along with the neglible number of responses with more than \$3,000 of funding are not included in the following graphs.
+\begin{marginfigure}
+<<train, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.aid
+@
+\caption{Available Training Budget (Count)\label{train}}
+\end{marginfigure}
+
+
+In regards to staff position, organizations with staff for digital preservation lie on extremes, equally able to fund thousands of dollars worth of training or none at all (see Figure \ref{trainresp}). Comparing the organization size to funding may explain this split. Most organzations with 50 or less staff provide \$500 or less for training. With more than 50 staff, training budgets expand to \$750 or more (see Figure \ref{trainstaff}).
+\begin{figure}
+<<trainresp, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.aidresp
+@
+\caption{Responsibility by Training Budget (Percentage)\label{trainresp}}
+\end{figure}
+
+\begin{figure}
+<<trainstaff, echo=FALSE, cache=FALSE, fig.width=7.5, fig.height=4.5>>=
+g.aidstaff
+@
+\caption{Training Budget by Staff Size (Percentage)\label{trainstaff}}
+\end{figure}
+
+\subsection{Recommendations}
+Respondents represent 2 distinct groups of organization, small and large. Digital preservation gains greater institutional buy-in as staffs grow, as does budget for digital preservation training. This suggests a potential funding strategy, using training for larger organizations to subsidize training for smaller organizations. When it comes to training content, topics such as strategy and management will depend on the size of a participants organzation, but the fundamentals regarding collection content can be shared.
+
+\end{document}
+
