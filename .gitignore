@@ -16,6 +16,7 @@
 analysis/figure*
 
 # Core latex/pdflatex auxiliary files:
+*.tex		
 *.aux
 *.lof
 *.log
